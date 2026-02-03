@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  MERCHANT
+  CASHIER
+  CONSUMER
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum OfferStatus {
+  SCHEDULED
+  LIVE
+  SOLD_OUT
+  EXPIRED
+  ARCHIVED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PICKED_UP
+}
+
+enum QrStatus {
+  ACTIVE
+  USED
+  EXPIRED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String?   // Nullable for consumers using OTP
+  role          Role
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  ownedStores   Store[]   @relation("MerchantStores")
+  reservations  Reservation[]
+  managedStore  Store?    @relation("CashierStore", fields: [managedStoreId], references: [id])
+  managedStoreId String?
+  
+  auditLogs     AuditLog[]
+  
+  @@map("users")
+}
+
+model Store {
+  id          String   @id @default(uuid())
+  merchantId  String
+  merchant    User     @relation("MerchantStores", fields: [merchantId], references: [id])
+  cashiers    User[]   @relation("CashierStore")
+  name        String
+  address     String
+  city        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  offers      Offer[]
+  reservations Reservation[]
+
+  @@map("stores")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  merchantId  String
+  name        String
+  description String?
+  category    String
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  offers      Offer[]
+
+  @@map("products")
+}
+
+model Offer {
+  id              String       @id @default(uuid())
+  productId       String
+  product         Product      @relation(fields: [productId], references: [id])
+  storeId         String
+  store           Store        @relation(fields: [storeId], references: [id])
+  
+  originalPrice   Decimal
+  discountedPrice Decimal
+  discountType    DiscountType?
+  discountValue   Decimal?
+  
+  dlcDate         DateTime     
+  quantityTotal   Int
+  quantityAvailable Int
+  
+  status          OfferStatus
+  startsAt        DateTime
+  endsAt          DateTime
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  reservationItems ReservationItem[]
+
+  @@map("offers")
+}
+
+model Reservation {
+  id          String            @id @default(uuid())
+  consumerId  String
+  consumer    User              @relation(fields: [consumerId], references: [id])
+  storeId     String
+  store       Store             @relation(fields: [storeId], references: [id])
+  
+  status      ReservationStatus
+  expiresAt   DateTime
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  items       ReservationItem[]
+  qrToken     QrToken?
+
+  @@map("reservations")
+}
+
+model ReservationItem {
+  id            String      @id @default(uuid())
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  offerId       String
+  offer         Offer       @relation(fields: [offerId], references: [id])
+  
+  quantity      Int
+  unitPrice     Decimal     
+  createdAt     DateTime    @default(now())
+
+  @@map("reservation_items")
+}
+
+model QrToken {
+  id            String    @id @default(uuid())
+  reservationId String    @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  
+  token         String    @unique 
+  status        QrStatus
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@map("qr_tokens")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  actorUserId   String?
+  actor         User?    @relation(fields: [actorUserId], references: [id])
+  action        String
+  entityType    String
+  entityId      String
+  metadataJson  Json?
+  createdAt     DateTime @default(now())
+
+  @@map("audit_logs")
+}
