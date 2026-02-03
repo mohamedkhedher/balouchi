@@ -95,9 +95,9 @@ export default function CashierScanPage() {
                         onScan={(result) => {
                             if (result && result[0]) handleScan(result[0].rawValue);
                         }}
-                        components={{ audio: false }} // Disable sound if annoying
                         styles={{ container: { width: '100%', height: '100%' } }}
                     />
+
                     <div className="absolute inset-0 pointer-events-none border-[40px] border-black/50 flex items-center justify-center">
                         <div className="w-48 h-48 border-2 border-white/50 rounded-lg relative">
                             <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1"></div>
